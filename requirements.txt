@@ -1,0 +1,28 @@
+# --- Web framework / server ---
+fastapi>=0.111
+uvicorn[standard]>=0.29
+
+# --- HTTP + async ---
+httpx>=0.27
+
+# --- Session storage / pub-sub (redis-py ships redis.asyncio; aioredis is merged in) ---
+redis>=5.0
+
+# --- Rate limiting ---
+slowapi>=0.1.9
+
+# --- Config / validation ---
+pydantic[email]>=2.0
+pydantic-settings>=2.0
+python-dotenv>=1.0
+
+# --- Ownership-verification token signing ---
+itsdangerous>=2.1
+
+# --- OSINT modules ---
+python-whois>=0.9
+dnspython>=2.6
+pypdf>=4.0
+Pillow>=10.0
+exifread>=3.0
+sherlock-project>=0.15
