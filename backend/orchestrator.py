@@ -62,15 +62,15 @@ async def run_audit(session_id: str, body: AuditRequest) -> None:
     social_urls = _extract_social_urls(results)
     discovered_usernames = _extract_usernames(results, body)
 
-    dep_modules: list[BaseModule] = []
+    # SocialContentModule always runs — even with no discovered profile URLs it
+    # still checks Gravatar (email-derived, no discovery needed).
+    dep_modules: list[BaseModule] = [SocialContentModule(social_urls, body.email)]
     if doc_urls:
         dep_modules.append(MetadataModule(doc_urls))
-    if social_urls:
-        dep_modules.append(SocialContentModule(social_urls, body.email))
     if discovered_usernames:
         dep_modules.append(UsernameModule(None, discovered_usernames, body.email))
 
-    dep_results = await asyncio.gather(*[run_module(m, session_id) for m in dep_modules]) if dep_modules else []
+    dep_results = await asyncio.gather(*[run_module(m, session_id) for m in dep_modules])
 
     all_results = list(results) + list(dep_results)
 
@@ -106,13 +106,16 @@ def _extract_social_urls(results: list[dict]) -> list[str]:
 
 
 def _extract_usernames(results: list[dict], body: AuditRequest) -> list[str]:
+    # NB: findings' "platforms" field (e.g. github_module's cross-platform
+    # check) holds platform *names* ("npm", "PyPI"), not usernames — don't
+    # read it here. Only "discovered_usernames" is a genuine handle list.
     names: list[str] = []
     for r in results:
         for f in r.get("findings", []) or []:
             if isinstance(f, dict):
-                for p in f.get("platforms", []) or []:
-                    if isinstance(p, str):
-                        names.append(p)
+                for u in f.get("discovered_usernames", []) or []:
+                    if isinstance(u, str):
+                        names.append(u)
     return _dedupe(n for n in names if n)
 
 

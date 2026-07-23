@@ -4,11 +4,14 @@ Uses redis.asyncio (the async client shipped with redis-py; the old standalone
 `aioredis` package was merged into redis-py and is deprecated).
 """
 import json
+import logging
 from typing import Optional
 
 import redis.asyncio as redis
 
 from config import settings
+
+logger = logging.getLogger(__name__)
 
 _redis: Optional[redis.Redis] = None
 
@@ -40,12 +43,22 @@ async def delete_session(session_id: str) -> None:
 # ---- durable event log + pub/sub notification for live module streaming ----
 # Events are appended to a list (so nothing is lost if a subscriber connects
 # late) and pub/sub is used only to wake up any websocket currently waiting.
+#
+# publish() is best-effort by design: it only affects the *live* progress
+# view. A transient Redis blip here must never take down run_audit() — the
+# audit keeps computing regardless, and the final report still lands via
+# set_session(). Swallowing the error means that one module's update may not
+# reach an already-open browser tab, which is a strictly better failure mode
+# than losing the whole audit to a single flaky connection.
 async def publish(session_id: str, message: dict) -> None:
-    r = await get_redis()
-    key = f"auditlog:{session_id}"
-    await r.rpush(key, json.dumps(message))
-    await r.expire(key, settings.SESSION_TTL_SECONDS)
-    await r.publish(f"audit:{session_id}", "new")
+    try:
+        r = await get_redis()
+        key = f"auditlog:{session_id}"
+        await r.rpush(key, json.dumps(message))
+        await r.expire(key, settings.SESSION_TTL_SECONDS)
+        await r.publish(f"audit:{session_id}", "new")
+    except Exception:
+        logger.warning("publish() failed for session %s — live update dropped", session_id, exc_info=True)
 
 
 async def get_events(session_id: str, start: int = 0) -> list[dict]:

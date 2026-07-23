@@ -24,5 +24,3 @@ python-whois>=0.9
 dnspython>=2.6
 pypdf>=4.0
 Pillow>=10.0
-exifread>=3.0
-sherlock-project>=0.15

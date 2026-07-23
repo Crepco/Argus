@@ -11,7 +11,16 @@
       "Bash(.venv/Scripts/python.exe -c \"import fastapi, uvicorn; print\\('fastapi+uvicorn OK'\\)\")",
       "Bash(python -c \"import ast; ast.parse\\(open\\('main.py'\\).read\\(\\)\\); ast.parse\\(open\\('redis_client.py'\\).read\\(\\)\\); print\\('syntax OK'\\)\")",
       "Bash(npm audit *)",
-      "Bash(netstat -ano)"
+      "Bash(netstat -ano)",
+      "Bash(../.venv/Scripts/python.exe -c ' *)",
+      "Bash(redis-cli ping *)",
+      "Bash(.venv/Scripts/python.exe -c \"import websockets; print\\('websockets available'\\)\")",
+      "Bash(.venv/Scripts/python.exe \"C:\\\\Users\\\\hamza\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-hamza-OneDrive-Argus\\\\672303fc-2ff2-4092-a82d-d77543272d4a\\\\scratchpad\\\\smoke_test.py\")",
+      "Bash(tasklist //FI \"PID eq 28632\" //FI \"PID eq 33184\")",
+      "Bash(powershell -Command \"Get-Process -Id 28632,33184 -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,Path\")",
+      "Bash(wsl -l -v)",
+      "Bash(.venv/Scripts/python.exe -c ' *)",
+      "Bash(.venv/Scripts/python.exe -c \"import phonenumbers; print\\('already installed', phonenumbers.__file__\\)\")"
     ]
   }
 }

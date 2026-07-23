@@ -17,6 +17,16 @@ from config import settings
 
 SEVERITY_ORDER = {"CLEAN": 0, "LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4}
 
+# Domain-scoped modules (WHOIS, crt.sh, Wayback...) receive `body.domain or
+# email_domain`. If the user only gave an email, that can resolve to a
+# freemail provider — scanning gmail.com's own WHOIS/DNS would surface
+# Google's infrastructure, not the person's, so those modules skip it.
+FREEMAIL_DOMAINS = {
+    "gmail.com", "googlemail.com", "yahoo.com", "outlook.com", "hotmail.com",
+    "live.com", "msn.com", "icloud.com", "me.com", "protonmail.com", "proton.me",
+    "aol.com", "gmx.com", "zoho.com", "mail.com", "yandex.com",
+}
+
 
 class BaseModule:
     #: Stable machine name used by the frontend progress grid.
