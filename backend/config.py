@@ -6,7 +6,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     # LLM
-    OPENROUTER_API_KEY: str = ""
+    GEMINI_API_KEY: str = ""
+    OPENROUTER_API_KEY: str = ""  # unused now that llm_client.py calls Gemini directly; kept in case you switch back
 
     # Data sources
     SERPAPI_KEY: str = ""
