@@ -39,6 +39,7 @@ class AuditRequest(BaseModel):
     github_username: Optional[str] = None
     linkedin_url: Optional[str] = None
     domain: Optional[str] = None
+    phone: Optional[str] = None
     usernames: list[str] = []
     consent: bool
 

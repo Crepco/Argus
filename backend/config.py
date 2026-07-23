@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     CHALLENGE_TTL_SECONDS: int = 600         # 10 min — how long a domain/OAuth challenge is accepted
     MAX_PASTE_URLS: int = 50
     CRAWL_DELAY_SECONDS: float = 1.0
+    MODULE_TIMEOUT_SECONDS: float = 60.0    # hard cap so one slow module can't stall the whole audit
 
 
 settings = Settings()

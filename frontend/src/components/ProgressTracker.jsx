@@ -10,6 +10,7 @@ const MODULES = [
   "wayback_module",
   "username_module",
   "social_content_module",
+  "phone_module",
   "synthesis",
 ];
 

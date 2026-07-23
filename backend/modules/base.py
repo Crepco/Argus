@@ -79,12 +79,27 @@ class DomainRateLimiter:
             self._last[host] = time.monotonic()
 
 
+# All 6+ base modules run concurrently via asyncio.gather, and several of
+# them (dork/email_hunter/phone via serpapi_search, github's repo scan,
+# username's per-platform sweep) each fan out their OWN internal batch of
+# requests too. Left unbounded, a single audit can momentarily try to open
+# 60-90+ simultaneous outbound connections from one process, which some
+# local firewalls/endpoint-security agents throttle by silently dropping
+# connections rather than erroring — manifesting as the whole audit hanging.
+# Capping each client's own connection pool keeps any one module's burst
+# bounded; capping SerpAPI specifically (shared by 3 query-heavy modules)
+# bounds the largest single contributor.
+_DEFAULT_LIMITS = httpx.Limits(max_connections=10, max_keepalive_connections=5)
+_SERPAPI_SEMAPHORE = asyncio.Semaphore(8)
+
+
 def make_client(timeout: float = 15.0, follow_redirects: bool = True) -> httpx.AsyncClient:
-    """httpx client pre-configured with the required User-Agent."""
+    """httpx client pre-configured with the required User-Agent and a bounded connection pool."""
     return httpx.AsyncClient(
         timeout=timeout,
         follow_redirects=follow_redirects,
         headers={"User-Agent": settings.USER_AGENT},
+        limits=_DEFAULT_LIMITS,
     )
 
 
@@ -92,11 +107,12 @@ async def serpapi_search(query: str, num: int = 10) -> list[dict]:
     """Run one Google query through SerpAPI. Returns [] if no key configured."""
     if not settings.SERPAPI_KEY:
         return []
-    async with make_client(timeout=20) as client:
-        resp = await client.get(
-            "https://serpapi.com/search.json",
-            params={"q": query, "engine": "google", "num": num, "api_key": settings.SERPAPI_KEY},
-        )
-        if resp.status_code != 200:
-            return []
-        return resp.json().get("organic_results", []) or []
+    async with _SERPAPI_SEMAPHORE:
+        async with make_client(timeout=20) as client:
+            resp = await client.get(
+                "https://serpapi.com/search.json",
+                params={"q": query, "engine": "google", "num": num, "api_key": settings.SERPAPI_KEY},
+            )
+            if resp.status_code != 200:
+                return []
+            return resp.json().get("organic_results", []) or []

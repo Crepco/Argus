@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import re
 
+from config import settings
 from models import AuditRequest
 from redis_client import publish, set_session
 from synthesizer import synthesize
@@ -17,6 +18,7 @@ from modules.metadata_module import MetadataModule
 from modules.wayback_module import WaybackModule
 from modules.username_module import UsernameModule
 from modules.social_content_module import SocialContentModule
+from modules.phone_module import PhoneModule
 
 DOC_EXT_RE = re.compile(r"\.(pdf|docx?|jpe?g|png|tiff?)(\?|$)", re.IGNORECASE)
 SOCIAL_HOSTS = (
@@ -27,15 +29,20 @@ SOCIAL_HOSTS = (
 
 async def run_module(module: BaseModule, session_id: str) -> dict:
     try:
-        result = await module.run()
-    except Exception as e:  # a broken module must never sink the audit
+        result = await asyncio.wait_for(module.run(), timeout=settings.MODULE_TIMEOUT_SECONDS)
+    except Exception as e:  # a broken OR slow module must never sink the audit
+        error = (
+            f"timed out after {settings.MODULE_TIMEOUT_SECONDS:.0f}s"
+            if isinstance(e, asyncio.TimeoutError)
+            else str(e)
+        )
         result = {
             "module": getattr(module, "name", module.__class__.__name__),
             "status": "error",
             "severity": "CLEAN",
             "findings": [],
             "sources": [],
-            "error": str(e),
+            "error": error,
         }
     await publish(session_id, {"type": "module_result", "data": result})
     return result
@@ -53,6 +60,7 @@ async def run_audit(session_id: str, body: AuditRequest) -> None:
         DorkModule(body.name, body.email, body.domain),
         WaybackModule(domain),
         UsernameModule(body.github_username, body.usernames, body.email),
+        PhoneModule(body.phone),
     ]
 
     results = await asyncio.gather(*[run_module(m, session_id) for m in base_modules])

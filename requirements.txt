@@ -24,3 +24,4 @@ python-whois>=0.9
 dnspython>=2.6
 pypdf>=4.0
 Pillow>=10.0
+phonenumbers>=8.13

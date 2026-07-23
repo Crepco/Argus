@@ -19,6 +19,7 @@ export default function InputForm({ onStarted }) {
     github_username: "",
     linkedin_url: "",
     domain: "",
+    phone: "",
     usernames: "",
   });
   const [consent, setConsent] = useState(false);
@@ -88,6 +89,7 @@ export default function InputForm({ onStarted }) {
       github_username: form.github_username || null,
       linkedin_url: form.linkedin_url || null,
       domain: form.domain || null,
+      phone: form.phone || null,
       usernames: form.usernames
         ? form.usernames.split(",").map((s) => s.trim()).filter(Boolean)
         : [],
@@ -150,6 +152,11 @@ export default function InputForm({ onStarted }) {
             <button className={`${btn} mt-2`} onClick={doDomainConfirm}>I've added it — confirm</button>
           </div>
         )}
+      </div>
+
+      <div>
+        <label className="text-sm text-slate-300">Phone number (optional)</label>
+        <input className={field} value={form.phone} onChange={set("phone")} placeholder="+1 555 123 4567" />
       </div>
 
       <div>

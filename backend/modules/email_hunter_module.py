@@ -135,9 +135,18 @@ class EmailHunterModule(BaseModule):
         findings: list[dict] = []
         sources: list[str] = []
 
-        async with make_client(timeout=10) as client:
-            for url in urls[: settings.MAX_PASTE_URLS]:
+        # Bounded concurrency: sequential fetches of up to MAX_PASTE_URLS
+        # third-party pages (each with its own 10s timeout) can add up to
+        # minutes of wall time if a few of them are slow/unresponsive. A
+        # semaphore caps worst case to roughly (N / limit) * 10s instead.
+        semaphore = asyncio.Semaphore(10)
+
+        async def bounded_scan(client, url: str) -> None:
+            async with semaphore:
                 await self._scan_url(client, url, findings, sources)
+
+        async with make_client(timeout=10) as client:
+            await asyncio.gather(*[bounded_scan(client, url) for url in urls[: settings.MAX_PASTE_URLS]])
 
         severity = self._severity(findings)
         return self.result(severity, findings, sources)
