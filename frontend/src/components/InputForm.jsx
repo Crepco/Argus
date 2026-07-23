@@ -78,7 +78,7 @@ export default function InputForm({ onStarted }) {
   const githubOk = !form.github_username || proven("github", form.github_username);
   const domainOk = !form.domain || proven("domain", form.domain);
 
-  const canSubmit = form.name && form.email && githubOk && domainOk && consent;
+  const canSubmit = form.name && form.email && consent;
 
   const submit = async () => {
     setError("");

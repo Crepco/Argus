@@ -37,10 +37,21 @@ async def delete_session(session_id: str) -> None:
     await r.delete(f"session:{session_id}")
 
 
-# ---- pub/sub for live module streaming ----
+# ---- durable event log + pub/sub notification for live module streaming ----
+# Events are appended to a list (so nothing is lost if a subscriber connects
+# late) and pub/sub is used only to wake up any websocket currently waiting.
 async def publish(session_id: str, message: dict) -> None:
     r = await get_redis()
-    await r.publish(f"audit:{session_id}", json.dumps(message))
+    key = f"auditlog:{session_id}"
+    await r.rpush(key, json.dumps(message))
+    await r.expire(key, settings.SESSION_TTL_SECONDS)
+    await r.publish(f"audit:{session_id}", "new")
+
+
+async def get_events(session_id: str, start: int = 0) -> list[dict]:
+    r = await get_redis()
+    raw = await r.lrange(f"auditlog:{session_id}", start, -1)
+    return [json.loads(x) for x in raw]
 
 
 # ---- generic short-lived KV (OTP codes, etc.) ----
