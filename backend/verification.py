@@ -1,25 +1,18 @@
-"""Ownership verification — the gate that keeps this a *self*-audit tool.
+"""Ownership verification for the identifiers that support it.
 
-No identifier is ever scanned unless the caller has proven they control it:
-
-    email   -> one-time code sent to that inbox
     github  -> OAuth login as that account
     domain  -> DNS TXT challenge record
 
-Usernames / LinkedIn are only accepted once at least one *primary* identifier
-(email, github, or domain) has been verified in the same request. A consent
-checkbox alone is never sufficient.
+Email is taken as given (it's a required field on every audit — no proof
+step). GitHub and domain proofs, when the caller fills those optional
+fields, must be valid before the identifier is scanned.
 
 Proofs are short-lived signed tokens (itsdangerous), so the browser can hold
 them between the verify step and the audit-start step without us keeping
 server-side session state for them.
 """
 import asyncio
-import hashlib
-import hmac
 import secrets
-import smtplib
-from email.message import EmailMessage
 from typing import Optional
 
 import dns.resolver
@@ -29,8 +22,6 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from config import settings
 from models import VerificationChallenge, VerificationToken
 from redis_client import kv_delete, kv_get, kv_set
-
-PRIMARY_TYPES = {"email", "github", "domain"}
 
 _serializer = URLSafeTimedSerializer(settings.VERIFICATION_SECRET, salt="ownership-proof")
 
@@ -57,9 +48,9 @@ def _norm(value: str) -> str:
 def validate_audit_tokens(body) -> None:
     """Raise ValueError if the request tries to scan an unverified identifier.
 
-    `body` is an AuditRequest. Enforces:
-      * every scanned identifier is covered by a valid token
-      * usernames / linkedin require at least one verified primary identifier
+    `body` is an AuditRequest. GitHub and domain, when provided, must each be
+    covered by a valid proof token. Email needs no proof — it's a required
+    field and treated as given.
     """
     proven: dict[str, set[str]] = {}
     for raw in body.verification_tokens:
@@ -70,77 +61,11 @@ def validate_audit_tokens(body) -> None:
     def is_proven(kind: str, value: str) -> bool:
         return value is not None and _norm(value) in proven.get(kind, set())
 
-    # Primary identifiers must each be individually proven.
-    if not is_proven("email", body.email):
-        raise ValueError("Email ownership not verified. Confirm the code sent to that inbox first.")
-
     if body.github_username and not is_proven("github", body.github_username):
         raise ValueError("GitHub ownership not verified. Sign in with that GitHub account first.")
 
     if body.domain and not is_proven("domain", body.domain):
         raise ValueError("Domain ownership not verified. Add the DNS TXT record first.")
-
-    # Secondary identifiers: allowed only once a primary is proven.
-    has_primary = any(proven.get(t) for t in PRIMARY_TYPES)
-    if (body.usernames or body.linkedin_url) and not has_primary:
-        raise ValueError(
-            "Usernames and LinkedIn can only be audited after you verify a primary "
-            "identifier (email, GitHub, or domain)."
-        )
-
-
-# ---------------------------------------------------------------------------
-# Email one-time code
-# ---------------------------------------------------------------------------
-def _otp_key(email: str) -> str:
-    return f"otp:email:{_norm(email)}"
-
-
-def _hash_code(email: str, code: str) -> str:
-    return hmac.new(
-        settings.VERIFICATION_SECRET.encode(), f"{_norm(email)}:{code}".encode(), hashlib.sha256
-    ).hexdigest()
-
-
-async def start_email_verification(email: str) -> None:
-    code = f"{secrets.randbelow(1_000_000):06d}"
-    await kv_set(_otp_key(email), _hash_code(email, code), ttl=settings.OTP_TTL_SECONDS)
-    await _send_code(email, code)
-
-
-async def confirm_email_verification(email: str, code: str) -> VerificationToken:
-    stored = await kv_get(_otp_key(email))
-    if not stored or not hmac.compare_digest(stored, _hash_code(email, code)):
-        raise ValueError("Invalid or expired code.")
-    await kv_delete(_otp_key(email))
-    return VerificationToken(type="email", value=_norm(email), token=issue_token("email", email))
-
-
-async def _send_code(email: str, code: str) -> None:
-    body = (
-        f"Your OSINT Privacy Auditor verification code is: {code}\n\n"
-        f"It expires in {settings.OTP_TTL_SECONDS // 60} minutes. If you did not "
-        f"request an audit of this address, ignore this email."
-    )
-    if not settings.SMTP_HOST:
-        # Dev fallback: no SMTP configured — print to console.
-        print(f"\n[email-verification] code for {email}: {code}\n", flush=True)
-        return
-
-    msg = EmailMessage()
-    msg["Subject"] = "Your privacy-audit verification code"
-    msg["From"] = settings.SMTP_FROM
-    msg["To"] = email
-    msg.set_content(body)
-
-    def _send() -> None:
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as s:
-            s.starttls()
-            if settings.SMTP_USER:
-                s.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            s.send_message(msg)
-
-    await asyncio.to_thread(_send)
 
 
 # ---------------------------------------------------------------------------
@@ -153,7 +78,7 @@ def _domain_key(domain: str) -> str:
 async def start_domain_verification(domain: str) -> VerificationChallenge:
     nonce = secrets.token_hex(16)
     record = f"osint-auditor-verify={nonce}"
-    await kv_set(_domain_key(domain), nonce, ttl=settings.OTP_TTL_SECONDS)
+    await kv_set(_domain_key(domain), nonce, ttl=settings.CHALLENGE_TTL_SECONDS)
     return VerificationChallenge(
         type="domain",
         value=_norm(domain),

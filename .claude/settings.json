@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import fastapi, uvicorn, redis, slowapi, itsdangerous, dns.resolver, pydantic_settings; print\\('core deps present'\\)\")",
+      "Bash(python -m compileall -q .)",
+      "Bash(python -m pip install -q \"fastapi>=0.111\" \"uvicorn[standard]\" \"redis>=5.0\" \"slowapi>=0.1.9\" \"itsdangerous>=2.1\" \"dnspython>=2.6\" \"pydantic[email]>=2.0\" \"pydantic-settings>=2.0\" \"httpx>=0.27\")",
+      "Bash(python -c ' *)",
+      "Bash(python -c \"import ast; [ast.parse\\(open\\(f, encoding='utf-8'\\).read\\(\\), f\\) for f in ['main.py','models.py','config.py','verification.py','modules/email_hunter_module.py']]\")",
+      "Bash(where redis-server *)",
+      "Bash(python -m venv .venv)"
+    ]
+  }
+}

@@ -1,16 +1,15 @@
 """Paste / breach exposure module (build-order step 6).
 
-Searches paste sites and leak indexes for the *verified* target email and
-reports what category of leak it appears in.
+Searches paste sites and leak indexes for the target email and reports what
+category of leak it appears in.
 
 HARD RULE — categories and patterns only. This module must NEVER return a
 password, hash, or any credential value. `extract_sensitive_fields` yields
 category names ("password or hash"), `detect_credential_pattern` yields the
 shape ("email:password"), never the matched text. Cap: settings.MAX_PASTE_URLS.
 
-Runs only after email ownership is verified (enforced upstream in
-verification.validate_audit_tokens), so this is a "is my address in a dump"
-check in the same spirit as Have I Been Pwned — not third-party breach lookup.
+This is a "is my address in a dump" check in the same spirit as Have I Been
+Pwned — not third-party breach lookup.
 """
 from __future__ import annotations
 

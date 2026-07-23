@@ -8,19 +8,19 @@ bypassing access controls, no long-term data storage.
 
 ## What makes this a self-audit tool (and not a targeting tool)
 
-The single design decision that keeps this defensive is **ownership
-verification**. You cannot scan an identifier you haven't proved you control:
+Email is a required field and treated as given — the whole point is to see
+what's exposed about *your* address. GitHub and domain are optional, and if
+you fill them in, ownership must be proven before they're scanned:
 
 | Identifier | Proof required before it is scanned |
 |------------|-------------------------------------|
-| Email      | One-time code sent to that inbox |
 | GitHub     | OAuth login as that account |
 | Domain     | DNS `TXT` challenge record |
-| Usernames / LinkedIn | Only accepted **after** a primary identifier (email, GitHub, or domain) is verified |
 
-`/api/audit/start` rejects any identifier without a valid, unexpired
-verification token. A consent checkbox alone is not accepted — it can't
-distinguish "auditing myself" from "profiling someone else."
+`/api/audit/start` rejects a GitHub username or domain without a valid,
+unexpired verification token. A consent checkbox is also required — it can't
+distinguish "auditing myself" from "profiling someone else" on its own, but
+it's the only gate on email, usernames, and LinkedIn.
 
 Two further scopings vs. a generic OSINT tool:
 - **No behavioral-routine extraction.** The social module flags whether you
@@ -61,12 +61,9 @@ uvicorn main:app --reload --app-dir backend
 cd frontend && npm install && npm run dev
 ```
 
-With no `SMTP_*` configured, email one-time codes are printed to the backend
-console — fine for local development.
-
 ## Ethical guardrails
 
-1. Ownership verified before any identifier is scanned (see table above)
+1. GitHub and domain ownership verified before those identifiers are scanned (see table above)
 2. Consent checkbox required **in addition** to verification, validated backend-side
 3. Rate limit: 3 audits per IP per hour
 4. Redis TTL: all session data auto-purges after 30 minutes
